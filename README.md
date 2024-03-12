@@ -1,7 +1,7 @@
 SOMEIP Adpater
 ===========
 ## Overview
-TBD
+Python module to leverage someip implementations developed from other programming languages.
 
 ## Setup
 ### Prerequisites
