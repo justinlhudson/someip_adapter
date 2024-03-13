@@ -18,7 +18,7 @@ def service_example(index: int = 0):
     service_method = 0x9002
 
     def test(type: int, id: int, data: bytearray) -> bytearray:
-        print(f"rx: {hex(id)}({service_name}, {service_port}), data: {data}")
+        print(f"rx: {hex(id)}, {type} ({service_name}, {service_port}), data: {data}")
         if id == service_method:
             someip.notify(service_events[0], data=data)
         return None
@@ -48,7 +48,7 @@ def client_example(index: int = 0, increment: int = 0):
     service_events = [0x8770+increment]  # 0x8XXX
 
     def test(type: int, id: int, data: bytearray) -> bytearray:
-        print(f"rx: {hex(id)}({client_name}, {service_port}), data: {data}")
+        print(f"rx: {hex(id)}, {type} ({client_name}, {service_port}), data: {data}")
         return bytearray(data)
 
     someip = SOMEIP(client_name, service_id, service_instance, configuration)
@@ -67,11 +67,13 @@ def client_example(index: int = 0, increment: int = 0):
 
 
 if __name__ == '__main__':
-    many = 2
-    for x in range(0, many):
+    services = 3
+    clients = 2
+    
+    for x in range(0, services):
         Thread(target=service_example, args=(x,)).start()
         time.sleep(5)
-        for y in range(0, many):
+        for y in range(0, clients):
             Thread(target=client_example, args=(y, x)).start()
             time.sleep(3)
     input()

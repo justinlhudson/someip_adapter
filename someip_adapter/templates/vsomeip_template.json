@@ -3,7 +3,7 @@
     "netmask" : "255.255.255.0",
     "logging" :
     {
-        "level" : "debug",
+        "level" : "trace",
         "console" : "true",
         "file" : { "enable" : "false", "path" : "vsomeip_template.log" },
         "dlt" : "false"
@@ -21,7 +21,7 @@
         "initial_delay_max" : "100",
         "repetitions_base_delay" : "200",
         "repetitions_max" : "3",
-        "ttl" : "3",
+        "ttl" : "0xFF",
         "cyclic_offer_delay" : "2000",
         "request_response_delay" : "1500"
     }

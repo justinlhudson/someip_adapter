@@ -365,16 +365,20 @@ static PyObject *vsomeip_send_service(PyObject *self, PyObject *args) {
 
   int service_id, instance_id, method_id;
   PyObject *data;
+  int type = 0;
   int result = 0;
   std::string name;
   char* str_pointer;
 
-  if (!PyArg_ParseTuple(args, "siiiO", &str_pointer, &service_id, &instance_id, &method_id, &data))
+  if (!PyArg_ParseTuple(args, "siiiiO", &str_pointer, &service_id, &instance_id, &method_id, &type, &data))
     PyErr_SetString(PyExc_TypeError, PY_INVALID_ARGUMENTS);
   name = std::string(str_pointer);
 
   if (PyObject_TypeCheck(data, &PyByteArray_Type)) {
       bool is_tcp = false;
+      if (type == -1)
+        is_tcp = true;
+
       std::lock_guard<std::mutex> its_lock(_payload_mutex);
 
       std::shared_ptr<vsomeip::message> its_request = vsomeip::runtime::get()->create_request(is_tcp);

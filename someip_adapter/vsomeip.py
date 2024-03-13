@@ -147,18 +147,20 @@ class SOMEIP:
             raise UserWarning("client registers, service offer")
         self.module.request_service(self._name, self._id, self._instance, self._version[0], self._version[1])
 
-    def request(self, id: int, data: bytearray = None):
+    def request(self, id: int, data: bytearray = None, is_tcp: bool = False):
         """
         request message
         :param id: message id
         :param data: message data
+        :param is_tcp: else udp  # todo: determine from configuration (e.g. "reliable")
         :except: 'UserWarning'
         """
         if self._is_service:
             raise UserWarning("client requests, service responds")
+
         if data is None:
             data = [0x00]  # NULL
-        self.module.send_service(self._name, self._id, self._instance, id, data)
+        self.module.send_service(self._name, self._id, self._instance, id, -1 if is_tcp else 0, data)
 
     def callback(self, type: int, id: int, data: bytearray) -> bytearray:
         """
