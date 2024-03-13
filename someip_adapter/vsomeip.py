@@ -32,6 +32,8 @@ class SOMEIP:
         UNKNOWN = 0xFF
 
     _configuration = {}  # global shared so routing service knows all the routes
+    _lock = threading.Lock()
+    _routing = None
 
     @staticmethod
     def _purge(pattern):
@@ -60,26 +62,32 @@ class SOMEIP:
         :param force: remove any OS locks
         """
         self.module = importlib.import_module('vsomeip_ext')
-        self._name = name
-        self._id = id
-        self._instance = instance
-        self._group = 0x00  # default (ALL), todo: support groups?
-        self._is_service = None
-        self._configuration = self.default()
-        if configuration:
-            self._configuration = configuration
-        self._is_ready = False
-        self._lock = threading.Lock()
-        self._version = version
+        with SOMEIP._lock:  # protect while accessing external features
+            self._name = name
+            self._id = id
+            self._instance = instance
+            self._group = 0x00  # default (ALL), todo: support groups?
+            self._is_service = None
+            if configuration:
+                SOMEIP._configuration = configuration
+            else:
+                SOMEIP._configuration = self.default()
+            self._is_ready = False
+            self._version = version
 
-        if force:
-            self._purge("vsomeip*.lck")
+            if force:
+                self._purge("vsomeip*.lck")
 
-        # note: default configuration file if none given!!!
-        with open('vsomeip.json', "w", newline='\n') as file_handle:
-            json.dump(configuration, file_handle, sort_keys=True, indent=2)
+            if not SOMEIP._routing:
+                SOMEIP._routing = self._name
+            SOMEIP._configuration['routing'] = SOMEIP._routing
 
-        self.module.create(self._name, self._id, self._instance)
+            # note: default configuration file if none given!!!
+            with open('vsomeip.json', "w", newline='\n') as file_handle:
+                json.dump(SOMEIP._configuration, file_handle, sort_keys=True, indent=2)
+                file_handle.flush()
+
+            self.module.create(self._name, self._id, self._instance)
 
     def __del__(self):
         """ cleanup """
@@ -108,7 +116,9 @@ class SOMEIP:
         reference of configuration used
         :return: configuration
         """
-        return self._configuration
+        if not SOMEIP._configuration:
+            SOMEIP._configuration = self.default()
+        return SOMEIP._configuration
 
     def start(self):
         """
@@ -121,6 +131,10 @@ class SOMEIP:
         """
         stop application
         """
+        with SOMEIP._lock:
+            if SOMEIP._routing == self._name:  # if we are the router remove
+                SOMEIP._routing = None
+
         self.module.stop(self._name, self._id, self._instance)
         self._is_ready = False
 
