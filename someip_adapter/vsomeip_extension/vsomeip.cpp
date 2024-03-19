@@ -184,8 +184,6 @@ static PyObject *vsomeip_create_app(PyObject *self, PyObject *args) {
 #else
   _entity_mapping[name][service_id][instance_id].app = vsomeip::runtime::get()->create_application_std(vsomeip_entity.name.c_str());
 #endif
-  std::this_thread::sleep_for(chrono::milliseconds(1000));
-
   auto app = _entity_mapping[name][service_id][instance_id].app;
   app->init();
 
@@ -197,7 +195,7 @@ static PyObject *vsomeip_create_app(PyObject *self, PyObject *args) {
 
   auto register_state_binder = std::bind(std::mem_fn(&vsomeip_Entity::on_state), instance, std::placeholders::_1);
   app->register_state_handler(register_state_binder);
-  std::this_thread::sleep_for(chrono::milliseconds(3000));  // ramp-up time, todo: checking when actually ready (i.e. 'is_available')
+  std::this_thread::sleep_for(chrono::milliseconds(250));  // ramp-up time, todo: checking when actually ready (i.e. 'is_available')
 
   return Py_BuildValue("i", result);
 }
