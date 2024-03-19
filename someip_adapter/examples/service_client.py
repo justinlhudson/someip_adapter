@@ -1,15 +1,19 @@
 import time
+import uuid
 from threading import Thread
 from someip_adapter.vsomeip import SOMEIP
 
+SERVICE_ID_DEFAULT = 0x1234
+SERVICE_INSTANCE_DEFAULT = 0x5678
+SERVICE_PORT_DEFAULT = 30509
 
 def service_example(index: int = 0):
     configuration = SOMEIP.default()
 
-    service_name = "service_example" + f"_{index}"
-    service_id = 0x1234 + index
-    service_instance = 0x5678
-    service_port = 30509 + index
+    service_name = "service_example" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
+    service_id = SERVICE_ID_DEFAULT + index
+    service_instance = SERVICE_INSTANCE_DEFAULT
+    service_port = SERVICE_PORT_DEFAULT + index
 
     configuration["applications"].append({'name': service_name, 'id': 0x1111 + index})
     configuration["services"].append({'service': service_id, 'instance': service_instance, 'unreliable': service_port})
@@ -37,15 +41,15 @@ def service_example(index: int = 0):
 def client_example(index: int = 0, increment: int = 0):
     configuration = SOMEIP.default()
 
-    client_name = "client_example" + f"_{index}"
-    service_id = 0x1234 + increment
-    service_instance = 0x5678
-    service_port = 30509 + increment
+    client_name = "client_example" + f"_{increment}" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
+    service_id = SERVICE_ID_DEFAULT + increment
+    service_instance = SERVICE_INSTANCE_DEFAULT
+    service_port = SERVICE_PORT_DEFAULT + increment
 
     configuration["applications"].append({'name': client_name, 'id': 0x2222 + index})
     configuration["clients"].append({'service': service_id, 'instance': service_instance, 'unreliable': service_port})
     service_method = 0x9002
-    service_events = [0x8770+increment]  # 0x8XXX
+    service_events = [0x8770 + increment]  # 0x8XXX
 
     def test(type: int, id: int, data: bytearray) -> bytearray:
         print(f"rx: {hex(id)}, {type} ({client_name}, {service_port}), data: {data}")
@@ -67,13 +71,14 @@ def client_example(index: int = 0, increment: int = 0):
 
 
 if __name__ == '__main__':
+    init = 0
     services = 3
-    clients = 2
+    clients = 3
     
-    for x in range(0, services):
+    for x in range(init, init + services):
         Thread(target=service_example, args=(x,)).start()
         time.sleep(5)
-        for y in range(0, clients):
+        for y in range(init, init + clients):
             Thread(target=client_example, args=(y, x)).start()
             time.sleep(3)
     input()

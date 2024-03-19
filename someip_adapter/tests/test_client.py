@@ -26,9 +26,9 @@ class ClientTestCase(BaseTestCase):
         client = setup_client(99)
         client.start()
         client.register()
-        time.sleep(3)
+        time.sleep(10)
         client.stop()
-        time.sleep(5)
+        time.sleep(10)
 
     def test_configuration(self):
         self.assertTrue(self.client.configuration())

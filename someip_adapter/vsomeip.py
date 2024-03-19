@@ -76,6 +76,7 @@ class SOMEIP:
             self._version = version
 
             if force:
+                # https://github.com/COVESA/vsomeip/issues/289
                 self._purge("vsomeip*.lck")
 
             if not SOMEIP._routing:

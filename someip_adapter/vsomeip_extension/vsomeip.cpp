@@ -108,6 +108,9 @@ struct vsomeip_Entity {
   }
 
   void message_handler(const std::shared_ptr<vsomeip::message> &message) {
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
     std::shared_ptr<vsomeip::payload> its_payload = message->get_payload();
     int service_id = message->get_service();
     int instance_id = message->get_instance();
@@ -115,11 +118,10 @@ struct vsomeip_Entity {
     int type = static_cast<std::underlying_type<vsomeip::message_type_e>::type>(message->get_message_type());
 
     // if no callback (i.e. registered) then no point to do anything further
-    if (callback.count(message_id) <= 0 || callback[message_id].empty())
+    if (callback.count(message_id) <= 0 || callback[message_id].empty()) {
+      PyGILState_Release(gstate);
       return;
-
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
+    }
 
     PyObject *bytes_object = payload_pack(its_payload);
     PyObject *arguments = Py_BuildValue("iiO", type, message_id, bytes_object);
@@ -147,6 +149,8 @@ struct vsomeip_Entity {
 
     Py_DECREF(bytes_object);
     Py_DECREF(arguments);
+
+
     PyGILState_Release(gstate);
   }
 };
@@ -234,6 +238,7 @@ static PyObject *vsomeip_stop(PyObject *self, PyObject *args) {
      auto my_thread = _entity_mapping[name][service_id][instance_id].app_thread;
 
      app->clear_all_handler(); // should stop the routing...
+     app->release_service(service_id, instance_id);
      // vsomeip does weird checks if on the same thread to not block the stopping
      if (std::this_thread::get_id() != my_thread->get_id()) {
         if (my_thread->joinable()) {
@@ -245,13 +250,14 @@ static PyObject *vsomeip_stop(PyObject *self, PyObject *args) {
     app->stop();
     std::this_thread::sleep_for(chrono::milliseconds(3000));  // ramp-down time
 
+/*
 #ifdef __unix__
     pthread_cancel(my_thread->native_handle());
 #else
     TerminateThread(my_thread->native_handle(), 1);
 #endif
     app.reset(); // stop router and remove shared pointer
-
+*/
     _entity_mapping.erase(name);
   }
   catch (...) {
@@ -293,7 +299,6 @@ static PyObject *vsomeip_start(PyObject *self, PyObject *args) {
 
 static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
   std::lock_guard<std::mutex> guard(_mutex);
-
   int service_id, instance_id, message_id;
   int result = 0;
   std::string name;
@@ -309,7 +314,7 @@ static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
     PyErr_SetString(PyExc_TypeError, "need a callable object!");
   }
 
-  Py_XINCREF(callback_object);
+  Py_XINCREF(callback_object); // add a reference to new callback
   _entity_mapping[name][service_id][instance_id].callback[message_id].push_back(callback_object);
 
   auto app = _entity_mapping[name][service_id][instance_id].app;
@@ -558,6 +563,7 @@ int main(int argc, char *argv[]) {
   PyConfig_Clear(&config);
 #endif
 
+   PyEval_InitThreads();  //jz4l9s
   //PyMem_RawFree(program);
   return 0;
 }
