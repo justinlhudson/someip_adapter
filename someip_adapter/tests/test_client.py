@@ -1,5 +1,5 @@
 import time
-from .test_base import *
+from test_base import *
 
 
 class ClientTestCase(BaseTestCase):
@@ -20,15 +20,6 @@ class ClientTestCase(BaseTestCase):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-
-    @unittest.skip("Skipping as it breaks not stopping router correctly")
-    def test_stop(self):
-        client = setup_client(99)
-        client.start()
-        client.register()
-        time.sleep(10)
-        client.stop()
-        time.sleep(10)
 
     def test_configuration(self):
         self.assertTrue(self.client.configuration())

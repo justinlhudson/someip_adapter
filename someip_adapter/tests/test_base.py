@@ -51,6 +51,9 @@ def setup_service() -> SOMEIP_Test:
 
 class BaseTestCase(unittest.TestCase):
 
+    client = None
+    service = None
+
     data = bytearray([0x1, 0x2, 0x3])
     method_id = 0x9002
     event_ids = [0x8778]
@@ -64,4 +67,5 @@ class BaseTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.service.stop()
+        cls.client.stop()

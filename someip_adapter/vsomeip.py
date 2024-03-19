@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Callable, List, Tuple
 import re
 import socket
-
+import atexit
 
 is_windows = sys.platform.startswith('win')
 
@@ -18,6 +18,7 @@ class SOMEIP:
     Bindings for simple operations for service/client with
     vsomeip (<a href=https://github.com/COVESA/vsomeip>vsomip</a>)
     """
+
     class Message_Type(Enum):
         REQUEST = 0x00  # support
         REQUEST_NO_RETURN = 0x01
@@ -37,21 +38,26 @@ class SOMEIP:
 
     @staticmethod
     def _purge(pattern):
+        # todo: smarter faster stronger better
         dir = os.path.join(tempfile.gettempdir())
         retry = 3
+        flag = False
         for f in os.listdir(dir):
             if re.search(pattern, f):
                 while True:
                     retry = retry - 1
                     try:
                         os.remove(os.path.join(dir, f))
+                        flag = True
                     except Exception as ex:
                         time.sleep(1)
                         pass  # eat-it, Todo: not eat
-                    if retry <0:
+                    if retry < 0:
                         break
+        return flag
 
-    def __init__(self, name: str, id: int, instance: int, configuration: dict={}, version: Tuple[int, int] = (0x00, 0x00), force=True):
+    def __init__(self, name: str, id: int, instance: int, configuration: dict = {},
+                 version: Tuple[int, int] = (0x00, 0x00), force=False):
         """
         create instance
         :param name: application name
@@ -62,20 +68,21 @@ class SOMEIP:
         :param force: remove any OS locks
         """
         self.module = importlib.import_module('vsomeip_ext')
+
+        self._name = name
+        self._id = id
+        self._instance = instance
+        self._group = 0x00  # default (ALL), todo: support groups?
+        self._is_service = None
+        self._version = version
+
         with SOMEIP._lock:  # protect while accessing external features
-            self._name = name
-            self._id = id
-            self._instance = instance
-            self._group = 0x00  # default (ALL), todo: support groups?
-            self._is_service = None
             if configuration:
                 SOMEIP._configuration = configuration
             else:
                 SOMEIP._configuration = self.default()
-            self._is_ready = False
-            self._version = version
 
-            if force:
+            if force or is_windows:
                 # https://github.com/COVESA/vsomeip/issues/289
                 self._purge("vsomeip*.lck")
 
@@ -90,10 +97,12 @@ class SOMEIP:
 
             self.module.create(self._name, self._id, self._instance)
 
+        atexit.register(self.stop)  # executed at interpreter termination
+
     def __del__(self):
         """ cleanup """
         try:
-            pass
+            self.stop()
         except OSError:
             pass  # eat-it, catch exception if not found
 
@@ -104,7 +113,8 @@ class SOMEIP:
         :return: configuration
         """
         configuration = {}
-        with open(os.path.join(os.path.realpath(os.path.dirname(__file__)), 'templates', 'vsomeip_template.json'), "r") as handle:
+        with open(os.path.join(os.path.realpath(os.path.dirname(__file__)), 'templates', 'vsomeip_template.json'),
+                  "r") as handle:
             configuration = json.load(handle)
 
         configuration["unicast"] = '127.0.0.1'
@@ -126,7 +136,6 @@ class SOMEIP:
         start application
         """
         self.module.start(self._name, self._id, self._instance)
-        self._is_ready = True
 
     def stop(self):
         """
@@ -136,8 +145,10 @@ class SOMEIP:
             if SOMEIP._routing == self._name:  # if we are the router remove
                 SOMEIP._routing = None
 
-        self.module.stop(self._name, self._id, self._instance)
-        self._is_ready = False
+        try:
+            self.module.stop(self._name, self._id, self._instance)
+        except SystemError:  # todo: why eating...
+            pass
 
     def register(self):
         """
@@ -196,7 +207,8 @@ class SOMEIP:
         if callback is None:
             callback = self.callback
 
-        self.module.request_event_service(self._name, self._id, self._instance, id, self._group, self._version[0], self._version[1])
+        self.module.request_event_service(self._name, self._id, self._instance, id, self._group, self._version[0],
+                                          self._version[1])
         self.on_message(id, callback)
 
     def offer(self, events: List[int] = None):

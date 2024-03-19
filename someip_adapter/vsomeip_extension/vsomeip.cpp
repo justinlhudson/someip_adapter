@@ -150,7 +150,6 @@ struct vsomeip_Entity {
     Py_DECREF(bytes_object);
     Py_DECREF(arguments);
 
-
     PyGILState_Release(gstate);
   }
 };
@@ -234,30 +233,27 @@ static PyObject *vsomeip_stop(PyObject *self, PyObject *args) {
   name = std::string(str_pointer);
 
   auto app = _entity_mapping[name][service_id][instance_id].app;
+  auto my_thread = _entity_mapping[name][service_id][instance_id].app_thread;
+
   try {
-     auto my_thread = _entity_mapping[name][service_id][instance_id].app_thread;
-
      app->clear_all_handler(); // should stop the routing...
-     app->release_service(service_id, instance_id);
-     // vsomeip does weird checks if on the same thread to not block the stopping
-     if (std::this_thread::get_id() != my_thread->get_id()) {
-        if (my_thread->joinable()) {
-          my_thread->join();
-        }
-     } else {
-        my_thread->detach();
-     }
-    app->stop();
-    std::this_thread::sleep_for(chrono::milliseconds(3000));  // ramp-down time
+     //app->release_service(service_id, instance_id);
 
-/*
 #ifdef __unix__
     pthread_cancel(my_thread->native_handle());
 #else
     TerminateThread(my_thread->native_handle(), 1);
 #endif
     app.reset(); // stop router and remove shared pointer
-*/
+
+    // vsomeip does weird checks if on the same thread to not block the stopping
+    if (std::this_thread::get_id() != my_thread->get_id())  // else deadlock
+       if (my_thread->joinable())
+         my_thread->join();
+       else
+         my_thread->detach();
+    app->stop();
+
     _entity_mapping.erase(name);
   }
   catch (...) {
@@ -494,7 +490,6 @@ static PyObject *vsomeip_testing(PyObject *self, PyObject *args) {
   return Py_BuildValue("i", result);
 }
 
-
 /**************************************************************************************************/
 // *** Module Setup ***/
 /**************************************************************************************************/
@@ -562,8 +557,10 @@ int main(int argc, char *argv[]) {
   }
   PyConfig_Clear(&config);
 #endif
+   PyEval_InitThreads();
+   // Todo: loop through mapping to exit ALL applications
+   //Py_AtExit();
 
-   PyEval_InitThreads();  //jz4l9s
-  //PyMem_RawFree(program);
+   //PyMem_RawFree(program);
   return 0;
 }

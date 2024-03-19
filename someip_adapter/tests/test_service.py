@@ -33,15 +33,10 @@ class ServiceTestCase(BaseTestCase):
         self.assertEqual(self.service.callback(SOMEIP.Message_Type.REQUEST.value, self.method_id, self.data), self.data)
 
     def test_on_message(self):
-        # todo: why need a new client, on own test runs fine...
-        client = setup_client(1)
-        client.start()
-        client.register()
-
-        count = self.service.counter
         self.service.on_message(self.method_id)
+        count = self.service.counter
         while True:
-            client.request(self.method_id, self.data)
+            self.client.request(self.method_id, self.data)
             time.sleep(3)
             if self.service.counter > count:
                 break
@@ -57,11 +52,6 @@ class ServiceTestCase(BaseTestCase):
         self.service.offer(self.event_ids)
 
     def test_notify(self):
-        # todo: why need a new client, on own test runs fine...
-        client = setup_client(1)
-        client.start()
-        client.register()
-
         event_id = self.event_ids[0]
 
         count = self.service.counter
