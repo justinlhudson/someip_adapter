@@ -7,12 +7,14 @@ class ClientTestCase(BaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
 
+        cls.service.create()
         cls.service.offer()
         cls.service.start()
 
         cls.service.on_message(cls.method_id)
         cls.service.offer(events=cls.event_ids)
 
+        cls.client.create()
         cls.client.start()
 
         cls.client.register()

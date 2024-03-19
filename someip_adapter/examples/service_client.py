@@ -7,78 +7,95 @@ SERVICE_ID_DEFAULT = 0x1234
 SERVICE_INSTANCE_DEFAULT = 0x5678
 SERVICE_PORT_DEFAULT = 30509
 
-def service_example(index: int = 0):
-    configuration = SOMEIP.default()
 
-    service_name = "service_example" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
-    service_id = SERVICE_ID_DEFAULT + index
-    service_instance = SERVICE_INSTANCE_DEFAULT
-    service_port = SERVICE_PORT_DEFAULT + index
-
-    configuration["applications"].append({'name': service_name, 'id': 0x1111 + index})
-    configuration["services"].append({'service': service_id, 'instance': service_instance, 'unreliable': service_port})
-
-    service_events = [0x8770+index]
-    service_method = 0x9002
-
-    def test(type: int, id: int, data: bytearray) -> bytearray:
-        print(f"rx: {hex(id)}, {type} ({service_name}, {service_port}), data: {data}")
-        if id == service_method:
-            someip.notify(service_events[0], data=data)
+class service:
+    def test(self, type: int, id: int, data: bytearray) -> bytearray:
+        print(f"rx: {hex(id)}, {type} ({self.service_name}, {self.service_port}), data: {data}")
+        if id == self.service_method:
+            self.someip.notify(self.service_events[0], data=data)
         return None
 
-    someip = SOMEIP(service_name, service_id, service_instance, configuration)
-    someip.offer()
-    someip.start()
+    def __init__(self, index: int = 0):
+        configuration = SOMEIP.configuration()
 
-    someip.on_message(service_method, callback=test)
-    someip.offer(events=service_events)
+        self.service_name = "service_example" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
+        self.service_id = SERVICE_ID_DEFAULT + index
+        self.service_instance = SERVICE_INSTANCE_DEFAULT
+        self.service_port = SERVICE_PORT_DEFAULT + index
 
-    while True:
-        time.sleep(5)
+        configuration["applications"].append({'name': self.service_name, 'id': 0x1111 + index})
+        configuration["services"].append(
+            {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
+
+        self.service_events = [0x8770 + index]
+        self.service_method = 0x9002
+
+        self.someip = SOMEIP(self.service_name, self.service_id, self.service_instance, configuration)
+
+    def activate(self):
+        self.someip.create()
+
+        self.someip.offer()
+        self.someip.start()
+
+        self.someip.on_message(self.service_method, callback=self.test)
+        self.someip.offer(events=self.service_events)
 
 
-def client_example(index: int = 0, increment: int = 0):
-    configuration = SOMEIP.default()
+class client:
+    def test(self, type: int, id: int, data: bytearray) -> bytearray:
+        print(f"rx: {hex(id)}, {type} ({self.client_name}, {self.service_port}), data: {data}")
+        return None
 
-    client_name = "client_example" + f"_{increment}" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
-    service_id = SERVICE_ID_DEFAULT + increment
-    service_instance = SERVICE_INSTANCE_DEFAULT
-    service_port = SERVICE_PORT_DEFAULT + increment
+    def __init__(self, index: int = 0, increment: int = 0):
+        configuration = SOMEIP.configuration()
 
-    configuration["applications"].append({'name': client_name, 'id': 0x2222 + index})
-    configuration["clients"].append({'service': service_id, 'instance': service_instance, 'unreliable': service_port})
-    service_method = 0x9002
-    service_events = [0x8770 + increment]  # 0x8XXX
+        self.client_name = "client_example" + f"_{increment}" + f"_{index}" + f"_{uuid.uuid4().hex.upper()[0:6]}"
+        self.service_id = SERVICE_ID_DEFAULT + increment
+        self.service_instance = SERVICE_INSTANCE_DEFAULT
+        self.service_port = SERVICE_PORT_DEFAULT + increment
 
-    def test(type: int, id: int, data: bytearray) -> bytearray:
-        print(f"rx: {hex(id)}, {type} ({client_name}, {service_port}), data: {data}")
-        return bytearray(data)
+        configuration["applications"].append({'name': self.client_name, 'id': 0x2222 + index})
+        configuration["clients"].append(
+            {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
+        self.service_method = 0x9002
+        self.service_events = [0x8770 + increment]  # 0x8XXX
 
-    someip = SOMEIP(client_name, service_id, service_instance, configuration)
+        self.someip = SOMEIP(self.client_name, self.service_id, self.service_instance, configuration)
 
-    someip.on_message(service_method, test)
-    for service_event in service_events:
-        someip.on_event(service_event, test)
+    def activate(self):
+        self.someip.create()
 
-    someip.register()
-    someip.start()
+        for service_event in self.service_events:
+            self.someip.on_event(service_event, self.test)
 
-    while True:
-        time.sleep(3)
-        if index == 0:  # let one send and rest get events
-            someip.request(service_method, data=bytearray([65, 66, 67]))  # ABC
+        self.someip.register()
+        self.someip.start()
 
 
 if __name__ == '__main__':
-    init = 0
-    services = 3
-    clients = 3
-    
-    for x in range(init, init + services):
-        Thread(target=service_example, args=(x,)).start()
-        time.sleep(5)
-        for y in range(init, init + clients):
-            Thread(target=client_example, args=(y, x)).start()
-            time.sleep(3)
-    input()
+    instances = 10
+
+    # setup
+    services = []
+    clients = {}
+    for x in range(0, instances):
+        services.append(service(x))
+
+        clients[x] = []
+        for y in range(0, instances):
+            clients[x].append(client(y, x))
+
+    # start
+    for instance in services:
+        instance.activate()
+    for _, value in clients.items():
+        for instance in value:
+            instance.activate()
+
+    # interact
+    while True:
+        time.sleep(3)
+        # first client for each service
+        for key, _ in clients.items():
+            clients[key][0].someip.request(clients[key][0].service_method, data=bytearray([65, 66, 67]))  # ABC

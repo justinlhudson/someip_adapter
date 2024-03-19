@@ -80,7 +80,7 @@ class SOMEIP:
             if configuration:
                 SOMEIP._configuration = configuration
             else:
-                SOMEIP._configuration = self.default()
+                SOMEIP._configuration = self._configuration_template()
 
             if force or is_windows:
                 # https://github.com/COVESA/vsomeip/issues/289
@@ -95,8 +95,6 @@ class SOMEIP:
                 json.dump(SOMEIP._configuration, file_handle, sort_keys=True, indent=2)
                 file_handle.flush()
 
-            self.module.create(self._name, self._id, self._instance)
-
         atexit.register(self.stop)  # executed at interpreter termination
 
     def __del__(self):
@@ -107,7 +105,7 @@ class SOMEIP:
             pass  # eat-it, catch exception if not found
 
     @staticmethod
-    def default():
+    def _configuration_template():
         """
         default configuration template
         :return: configuration
@@ -122,14 +120,21 @@ class SOMEIP:
             configuration["unicast"] = socket.gethostbyname(socket.gethostname())
         return configuration
 
-    def configuration(self) -> dict:
+    @staticmethod
+    def configuration() -> dict:
         """
         reference of configuration used
         :return: configuration
         """
         if not SOMEIP._configuration:
-            SOMEIP._configuration = self.default()
+            SOMEIP._configuration = SOMEIP._configuration_template()
         return SOMEIP._configuration
+
+    def create(self):
+        """
+        create application
+        """
+        self.module.create(self._name, self._id, self._instance)
 
     def start(self):
         """

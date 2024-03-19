@@ -19,7 +19,7 @@ class SOMEIP_Test(SOMEIP):
 
 
 def setup_client(index: int = 0) -> SOMEIP_Test:
-    configuration = SOMEIP.default()
+    configuration = SOMEIP._configuration_template()
 
     client_name = "client_example" + f"_{index}"
     service_id = 0x1234
@@ -33,7 +33,7 @@ def setup_client(index: int = 0) -> SOMEIP_Test:
 
 
 def setup_service() -> SOMEIP_Test:
-    configuration = SOMEIP.default()
+    configuration = SOMEIP._configuration_template()
 
     service_name = "service_example"
     service_id = 0x1234
