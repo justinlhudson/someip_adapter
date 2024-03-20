@@ -7,6 +7,7 @@ Python module to leverage someip implementations developed from other programmin
 ### Prerequisites
 
 Download, Build, and Install vsomeip - [COVESA / vsomeip](https://github.com/COVESA/vsomeip)
+* the same compiler (linux - gcc, windows - msvc) used for vsomip are used to build and package this module.
 > [!IMPORTANT]
 > for windows support: [COVESA / vsomeip (fork)](https://github.com/justinlhudson/vsomeip)
 

@@ -195,7 +195,7 @@ static PyObject *vsomeip_create_app(PyObject *self, PyObject *args) {
 
   auto register_state_binder = std::bind(std::mem_fn(&vsomeip_Entity::on_state), instance, std::placeholders::_1);
   app->register_state_handler(register_state_binder);
-  std::this_thread::sleep_for(chrono::milliseconds(250));  // ramp-up time, todo: checking when actually ready (i.e. 'is_available')
+  std::this_thread::sleep_for(chrono::milliseconds(1));  // todo: checking when actually ready (i.e. 'is_available')
 
   return Py_BuildValue("i", result);
 }
@@ -319,7 +319,7 @@ static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
   //app->register_message_handler(vsomeip::ANY_SERVICE, vsomeip::ANY_INSTANCE, vsomeip::ANY_METHOD, register_message_binder);
   app->register_message_handler(service_id, instance_id, message_id, register_message_binder);
 
-  std::this_thread::sleep_for(chrono::milliseconds(125));  // todo:  why? or how do know is done?, race condition?, maybe a yield is needed?
+  std::this_thread::sleep_for(chrono::milliseconds(1));  // todo:  why? or how do know is done?, race condition?, maybe a yield is needed?
   return Py_BuildValue("i", result);
 }
 
