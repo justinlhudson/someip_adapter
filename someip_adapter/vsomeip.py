@@ -179,7 +179,7 @@ class SOMEIP:
             data = [0x00]  # NULL
         self.module.send_service(self._name, self._id, self._instance, id, -1 if is_tcp else 0, data)
 
-    def callback(self, type: int, id: int, data: bytearray) -> bytearray:
+    def callback_message(self, type: int, id: int, data: bytearray) -> bytearray:
         """
         :param id: message id
         :param data: message data
@@ -200,7 +200,7 @@ class SOMEIP:
         :param callback: function for on message
         """
         if callback is None:
-            callback = self.callback
+            callback = self.callback_message
         self.module.register_message(self._name, self._id, self._instance, id, callback)
 
     def on_event(self, id: int, callback: Callable[[int, int, bytearray], bytearray] = None):
@@ -210,7 +210,7 @@ class SOMEIP:
         :param callback: function for on event
         """
         if callback is None:
-            callback = self.callback
+            callback = self.callback_message
 
         self.module.request_event_service(self._name, self._id, self._instance, id, self._group, self._version[0],
                                           self._version[1])

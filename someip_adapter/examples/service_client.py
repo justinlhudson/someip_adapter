@@ -12,7 +12,8 @@ class service:
     def test(self, type: int, id: int, data: bytearray) -> bytearray:
         print(f"rx: {hex(id)}, {type} ({self.service_name}, {self.service_port}), data: {data}")
         if id == self.service_method:
-            self.someip.notify(self.service_events[0], data=data)
+            for event in self.service_events:
+                self.someip.notify(event, data=data)
         return None
 
     def __init__(self, index: int = 0):
@@ -27,7 +28,7 @@ class service:
         configuration["services"].append(
             {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
 
-        self.service_events = [0x8770 + index]
+        self.service_events = [0x8700 + index, 0x8800 + index]
         self.service_method = 0x9002
 
         self.someip = SOMEIP(self.service_name, self.service_id, self.service_instance, configuration)
@@ -57,9 +58,9 @@ class client:
 
         configuration["applications"].append({'name': self.client_name, 'id': 0x2222 + index})
         configuration["clients"].append(
-            {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
+            {'service': self.service_id, 'instance': self.service_instance})#, 'unreliable': self.service_port})
         self.service_method = 0x9002
-        self.service_events = [0x8770 + increment]  # 0x8XXX
+        self.service_events = [0x8700 + increment, 0x8800 + increment]  # 0x8XXX
 
         self.someip = SOMEIP(self.client_name, self.service_id, self.service_instance, configuration)
 
@@ -74,7 +75,7 @@ class client:
 
 
 if __name__ == '__main__':
-    instances = 10
+    instances = 20
 
     # setup
     services = []
@@ -83,7 +84,7 @@ if __name__ == '__main__':
         services.append(service(x))
 
         clients[x] = []
-        for y in range(0, instances):
+        for y in range(0, int(instances * 0.5)):
             clients[x].append(client(y, x))
 
     # start
