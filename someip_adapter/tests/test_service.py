@@ -3,21 +3,6 @@ from test_base import *
 
 
 class ServiceTestCase(BaseTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
-        cls.service.offer()
-        cls.service.start()
-        cls.service.offer(events=cls.event_ids)
-
-        cls.client.start()
-        cls.client.register()
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
     def test_configuration(self):
         self.assertTrue(self.service.configuration())
 
@@ -30,7 +15,7 @@ class ServiceTestCase(BaseTestCase):
             self.service.request(self.method_id, data=self.data)
 
     def test_response(self):
-        self.assertEqual(self.service.callback(SOMEIP.Message_Type.REQUEST.value, self.method_id, self.data), self.data)
+        self.assertEqual(self.service.callback_message(SOMEIP.Message_Type.REQUEST.value, self.method_id, self.data), self.data)
 
     def test_on_message(self):
         self.service.on_message(self.method_id)

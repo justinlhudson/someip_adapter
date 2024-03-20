@@ -86,15 +86,33 @@ struct vsomeip_Entity {
 
   int service_id;
   int instance_id;
-  bool is_available;
   bool is_registered;
   std::map<int, std::list<PyObject*>> callback;
+  std::map<int, std::list<PyObject*>> discovery;
 
   void on_availability(vsomeip::service_t service_id_, vsomeip::instance_t instance_id_, bool is_available_) {
-    is_available = is_available_;
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
+    PyObject *arguments = Py_BuildValue("iii", service_id_, instance_id_, 1 ? is_available_: 0);
+
+    for (PyObject *callback_object : discovery[0]) {
+      try {
+        PyObject_CallObject(callback_object, arguments); // invoke callback method
+      }
+      catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Check callback function!!!");
+      }
+    }
+    Py_DECREF(arguments);
+
+    PyGILState_Release(gstate);
   }
 
   void on_state(vsomeip::state_type_e state_) {
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
     if (state_ == vsomeip::state_type_e::ST_REGISTERED)
       is_registered = true;
     else
@@ -105,6 +123,8 @@ struct vsomeip_Entity {
         app->offer_service(service_id, instance_id);
     }
     */
+
+    PyGILState_Release(gstate);
   }
 
   void message_handler(const std::shared_ptr<vsomeip::message> &message) {
@@ -170,7 +190,6 @@ static PyObject *vsomeip_create_app(PyObject *self, PyObject *args) {
   name = std::string(str_pointer);
 
   vsomeip_Entity vsomeip_entity;  // memory allocation happening
-  vsomeip_entity.is_available = false;
   vsomeip_entity.is_registered = false;
   vsomeip_entity.service_id = service_id;
   vsomeip_entity.instance_id = instance_id;
@@ -189,12 +208,12 @@ static PyObject *vsomeip_create_app(PyObject *self, PyObject *args) {
 
   auto instance = _entity_mapping[name][service_id][instance_id];
 
-  //app->register_availability_handler(vsomeip::ANY_SERVICE, vsomeip::ANY_INSTANCE, on_availability);
   auto register_availability_binder = std::bind(std::mem_fn(&vsomeip_Entity::on_availability), instance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-  app->register_availability_handler(service_id, instance_id, register_availability_binder);
+  app->register_availability_handler(vsomeip::ANY_SERVICE, vsomeip::ANY_INSTANCE, register_availability_binder);
 
   auto register_state_binder = std::bind(std::mem_fn(&vsomeip_Entity::on_state), instance, std::placeholders::_1);
   app->register_state_handler(register_state_binder);
+
   std::this_thread::sleep_for(chrono::milliseconds(1));  // todo: checking when actually ready (i.e. 'is_available')
 
   return Py_BuildValue("i", result);
@@ -291,6 +310,29 @@ static PyObject *vsomeip_start(PyObject *self, PyObject *args) {
   return Py_BuildValue("i", result);
 }
 
+static PyObject *vsomeip_discovery_services(PyObject *self, PyObject *args) {
+  std::lock_guard<std::mutex> guard(_mutex);
+  int service_id, instance_id;
+  int result = 0;
+  std::string name;
+  PyObject *callback_object;
+  char* str_pointer;
+
+  if (!PyArg_ParseTuple(args, "siiO", &str_pointer, &service_id, &instance_id, &callback_object))
+    PyErr_SetString(PyExc_TypeError, PY_INVALID_ARGUMENTS);
+  name = std::string(str_pointer);
+
+  // make sure last argument is a function
+  if (!PyCallable_Check(callback_object)) {
+    PyErr_SetString(PyExc_TypeError, "need a callable object!");
+  }
+
+  Py_XINCREF(callback_object); // add a reference to new callback
+  _entity_mapping[name][service_id][instance_id].discovery[0].push_back(callback_object);
+
+  return Py_BuildValue("i", result);
+}
+
 static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
   std::lock_guard<std::mutex> guard(_mutex);
   int service_id, instance_id, message_id;
@@ -320,23 +362,6 @@ static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
   app->register_message_handler(service_id, instance_id, message_id, register_message_binder);
 
   std::this_thread::sleep_for(chrono::milliseconds(1));  // todo:  why? or how do know is done?, race condition?, maybe a yield is needed?
-  return Py_BuildValue("i", result);
-}
-
-static PyObject *vsomeip_is_available(PyObject *self, PyObject *args) {
-  std::lock_guard<std::mutex> guard(_mutex);
-
-  int service_id, instance_id;
-  int result = 0;
-  std::string name;
-  char* str_pointer;
-
-  if (!PyArg_ParseTuple(args, "sii", &str_pointer, &service_id, &instance_id))
-    PyErr_SetString(PyExc_TypeError, PY_INVALID_ARGUMENTS);
-  name = std::string(str_pointer);
-
-  if (_entity_mapping[name][service_id][instance_id].is_available)
-    result = 1;
   return Py_BuildValue("i", result);
 }
 
@@ -497,7 +522,6 @@ static PyMethodDef PyMethodDef_vsomeip[] = {
     {"create", vsomeip_create_app, METH_VARARGS, "create application"},
     {"start", vsomeip_start, METH_VARARGS, "start vsomeip application"},
     {"stop", vsomeip_stop, METH_VARARGS, "stop vsomeip application"},
-    {"is_available", vsomeip_is_available, METH_VARARGS, "start is complete"},
     {"register_message", vsomeip_register_message, METH_VARARGS, "register message"},
     {"offer_service", vsomeip_offer_service, METH_VARARGS, "offer service"},
     {"request_service", vsomeip_request_service, METH_VARARGS, "request service"},
@@ -505,6 +529,7 @@ static PyMethodDef PyMethodDef_vsomeip[] = {
     {"offer_event_service", vsomeip_offer_event_service, METH_VARARGS, "offering events"},
     {"request_event_service", vsomeip_request_event_service, METH_VARARGS, "requesting/subscribing event"},
     {"notify_clients", vsomeip_notify_clients, METH_VARARGS, "fire event"},
+    {"discovery_services", vsomeip_discovery_services, METH_VARARGS, "when services discovered"},
     {"testing", vsomeip_testing, METH_VARARGS, "testing..."},
     {NULL, NULL, 0, NULL} /* Sentinel */
 };
@@ -555,7 +580,6 @@ int main(int argc, char *argv[]) {
   }
   PyConfig_Clear(&config);
 #endif
-   PyEval_InitThreads();
    // Todo: loop through mapping to exit ALL applications
    //Py_AtExit();
 
