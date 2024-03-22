@@ -28,7 +28,7 @@ class service:
         configuration["services"].append(
             {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
 
-        self.service_events = [0x8700 + index, 0x8800 + index, 0x8900 + index, 0x8600 + index]
+        self.service_events = [0x8700 + index, 0x8800 + index, 0x8900 + index, 0x8600 + index] + [_ for _ in range(0x8000, 0x8100)]
         self.service_method = 0x9002
 
         self.someip = SOMEIP(self.service_name, self.service_id, self.service_instance, configuration)
@@ -60,7 +60,7 @@ class client:
         configuration["clients"].append(
             {'service': self.service_id, 'instance': self.service_instance})#, 'unreliable': self.service_port})
         self.service_method = 0x9002
-        self.service_events = [0x8700 + increment, 0x8800 + increment, 0x8900 + increment, 0x8600 + increment]  # 0x8XXX
+        self.service_events = [0x8700 + increment, 0x8800 + increment, 0x8900 + increment, 0x8600 + increment] + [_ for _ in range(0x8000, 0x8100)]  # 0x8XXX
 
         self.someip = SOMEIP(self.client_name, self.service_id, self.service_instance, configuration)
 
@@ -75,7 +75,7 @@ class client:
 
 
 if __name__ == '__main__':
-    instances = 10
+    instances = 3
 
     # setup
     services = []
