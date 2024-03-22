@@ -28,7 +28,7 @@ class service:
         configuration["services"].append(
             {'service': self.service_id, 'instance': self.service_instance, 'unreliable': self.service_port})
 
-        self.service_events = [0x8700 + index, 0x8800 + index]
+        self.service_events = [0x8700 + index, 0x8800 + index, 0x8900 + index, 0x8600 + index]
         self.service_method = 0x9002
 
         self.someip = SOMEIP(self.service_name, self.service_id, self.service_instance, configuration)
@@ -60,7 +60,7 @@ class client:
         configuration["clients"].append(
             {'service': self.service_id, 'instance': self.service_instance})#, 'unreliable': self.service_port})
         self.service_method = 0x9002
-        self.service_events = [0x8700 + increment, 0x8800 + increment]  # 0x8XXX
+        self.service_events = [0x8700 + increment, 0x8800 + increment, 0x8900 + increment, 0x8600 + increment]  # 0x8XXX
 
         self.someip = SOMEIP(self.client_name, self.service_id, self.service_instance, configuration)
 
@@ -75,7 +75,7 @@ class client:
 
 
 if __name__ == '__main__':
-    instances = 20
+    instances = 5
 
     # setup
     services = []
@@ -84,19 +84,33 @@ if __name__ == '__main__':
         services.append(service(x))
 
         clients[x] = []
-        for y in range(0, int(instances * 0.5)):
+        for y in range(0, instances):
             clients[x].append(client(y, x))
+
+    # showing after the fact but before client start all events seem to have to be offered
+    events_test = [_ for _ in range(0x8000, 0x8100)]
 
     # start
     for instance in services:
         instance.activate()
+        for event_id in events_test:
+            services[0].someip.offer(events=[event_id])
+
     for _, value in clients.items():
         for instance in value:
             instance.activate()
 
+    # testing after the fact offer, register, notify
+    for event_id in events_test:
+        clients[0][0].someip.on_event(event_id, clients[0][0].test)
+
     # interact
     while True:
         time.sleep(3)
+        data = [65, 66, 67]  # ABC
         # first client for each service
         for key, _ in clients.items():
-            clients[key][0].someip.request(clients[key][0].service_method, data=bytearray([65, 66, 67]))  # ABC
+            clients[key][0].someip.request(clients[key][0].service_method, data=bytearray(data))
+
+        for event in events_test:
+            services[0].someip.notify(event, data=bytearray(data))

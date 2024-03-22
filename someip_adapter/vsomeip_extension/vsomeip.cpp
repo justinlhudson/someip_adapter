@@ -361,7 +361,6 @@ static PyObject *vsomeip_register_message(PyObject *self, PyObject *args) {
   //app->register_message_handler(vsomeip::ANY_SERVICE, vsomeip::ANY_INSTANCE, vsomeip::ANY_METHOD, register_message_binder);
   app->register_message_handler(service_id, instance_id, message_id, register_message_binder);
 
-  std::this_thread::sleep_for(chrono::milliseconds(1));  // todo:  why? or how do know is done?, race condition?, maybe a yield is needed?
   return Py_BuildValue("i", result);
 }
 
